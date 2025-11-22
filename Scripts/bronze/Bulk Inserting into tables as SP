@@ -1,0 +1,71 @@
+-- =====================================================================================================
+-- Procedure: Load Bronze Layer with Load Time Calculation and Truncate
+-- Description: Truncates each table (if exists), bulk inserts data, and logs load duration per table.
+-- =====================================================================================================
+
+CREATE OR ALTER PROCEDURE bronze.load_bronze AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @start_time DATETIME, @end_time DATETIME, @duration_seconds INT;
+
+    -- =====================================================================================================
+    -- Bulk insert data into CRM tables from source_crm folder (truncate if exists)
+    -- =====================================================================================================
+    IF OBJECT_ID('bronze.crm_cust_info') IS NOT NULL TRUNCATE TABLE bronze.crm_cust_info;
+    SET @start_time = GETDATE();
+    BULK INSERT bronze.crm_cust_info
+    FROM 'G:\Data with Baraa\Materials\Data WareHouse Project\sql-data-warehouse-project\datasets\source_crm\cust_info.csv'
+    WITH ( FIRSTROW = 2, FIELDTERMINATOR = ',' );
+    SET @end_time = GETDATE();
+    SET @duration_seconds = DATEDIFF(SECOND, @start_time, @end_time);
+    PRINT 'Loaded crm_cust_info in ' + CAST(@duration_seconds AS VARCHAR) + ' seconds.';
+
+    IF OBJECT_ID('bronze.crm_prd_info') IS NOT NULL TRUNCATE TABLE bronze.crm_prd_info;
+    SET @start_time = GETDATE();
+    BULK INSERT bronze.crm_prd_info
+    FROM 'G:\Data with Baraa\Materials\Data WareHouse Project\sql-data-warehouse-project\datasets\source_crm\prd_info.csv'
+    WITH ( FIRSTROW = 2, FIELDTERMINATOR = ',' );
+    SET @end_time = GETDATE();
+    SET @duration_seconds = DATEDIFF(SECOND, @start_time, @end_time);
+    PRINT 'Loaded crm_prd_info in ' + CAST(@duration_seconds AS VARCHAR) + ' seconds.';
+
+    IF OBJECT_ID('bronze.crm_sales_details') IS NOT NULL TRUNCATE TABLE bronze.crm_sales_details;
+    SET @start_time = GETDATE();
+    BULK INSERT bronze.crm_sales_details
+    FROM 'G:\Data with Baraa\Materials\Data WareHouse Project\sql-data-warehouse-project\datasets\source_crm\sales_details.csv'
+    WITH ( FIRSTROW = 2, FIELDTERMINATOR = ',' );
+    SET @end_time = GETDATE();
+    SET @duration_seconds = DATEDIFF(SECOND, @start_time, @end_time);
+    PRINT 'Loaded crm_sales_details in ' + CAST(@duration_seconds AS VARCHAR) + ' seconds.';
+
+    -- =====================================================================================================
+    -- Bulk insert data into ERP tables from source_erp folder (truncate if exists)
+    -- =====================================================================================================
+    IF OBJECT_ID('bronze.erp_cust_az12') IS NOT NULL TRUNCATE TABLE bronze.erp_cust_az12;
+    SET @start_time = GETDATE();
+    BULK INSERT bronze.erp_cust_az12
+    FROM 'G:\Data with Baraa\Materials\Data WareHouse Project\sql-data-warehouse-project\datasets\source_erp\CUST_AZ12.csv'
+    WITH ( FIRSTROW = 2, FIELDTERMINATOR = ',' );
+    SET @end_time = GETDATE();
+    SET @duration_seconds = DATEDIFF(SECOND, @start_time, @end_time);
+    PRINT 'Loaded erp_cust_az12 in ' + CAST(@duration_seconds AS VARCHAR) + ' seconds.';
+
+    IF OBJECT_ID('bronze.erp_loc_a101') IS NOT NULL TRUNCATE TABLE bronze.erp_loc_a101;
+    SET @start_time = GETDATE();
+    BULK INSERT bronze.erp_loc_a101
+    FROM 'G:\Data with Baraa\Materials\Data WareHouse Project\sql-data-warehouse-project\datasets\source_erp\LOC_A101.csv'
+    WITH ( FIRSTROW = 2, FIELDTERMINATOR = ',' );
+    SET @end_time = GETDATE();
+    SET @duration_seconds = DATEDIFF(SECOND, @start_time, @end_time);
+    PRINT 'Loaded erp_loc_a101 in ' + CAST(@duration_seconds AS VARCHAR) + ' seconds.';
+
+    IF OBJECT_ID('bronze.erp_px_cat_g1v2') IS NOT NULL TRUNCATE TABLE bronze.erp_px_cat_g1v2;
+    SET @start_time = GETDATE();
+    BULK INSERT bronze.erp_px_cat_g1v2
+    FROM 'G:\Data with Baraa\Materials\Data WareHouse Project\sql-data-warehouse-project\datasets\source_erp\PX_CAT_G1V2.csv'
+    WITH ( FIRSTROW = 2, FIELDTERMINATOR = ',' );
+    SET @end_time = GETDATE();
+    SET @duration_seconds = DATEDIFF(SECOND, @start_time, @end_time);
+    PRINT 'Loaded erp_px_cat_g1v2 in ' + CAST(@duration_seconds AS VARCHAR) + ' seconds.';
+END;
