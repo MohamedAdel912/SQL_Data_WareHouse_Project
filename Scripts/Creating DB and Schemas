@@ -1,0 +1,46 @@
+-- Script: Initialize Data Warehouse Environment
+-- Description: Drops the Data Warehouse database if it exists, 
+-- then creates a fresh one with bronze, silver, and gold schemas.
+
+-------------------------------------------------------------
+-- 0. Switch to master database
+USE master;
+GO
+
+-- 1. Drop Database if it Exists
+-------------------------------------------------------------
+IF EXISTS (SELECT name FROM sys.databases WHERE name = 'DataWarehouse')
+BEGIN
+    PRINT 'Database DataWarehouse exists. Dropping now...';
+    DROP DATABASE DataWarehouse;
+END
+GO
+
+-------------------------------------------------------------
+-- 2. Create Database
+-------------------------------------------------------------
+CREATE DATABASE DataWarehouse;
+GO
+
+PRINT 'Database DataWarehouse created successfully.';
+GO
+
+-------------------------------------------------------------
+-- 3. Switch to DataWarehouse
+-------------------------------------------------------------
+USE DataWarehouse;
+GO
+
+-------------------------------------------------------------
+-- 4. Create Schemas
+-------------------------------------------------------------
+CREATE SCHEMA bronze;
+GO
+
+CREATE SCHEMA silver;
+GO
+
+CREATE SCHEMA gold;
+GO
+
+PRINT 'Schemas bronze, silver, and gold have been created.';
