@@ -1,0 +1,150 @@
+-- =====================================================================================================
+-- Step 1: Explore source tables in the silver layer
+-- =====================================================================================================
+
+SELECT * 
+FROM silver.crm_cust_info;
+
+SELECT * 
+FROM silver.erp_cust_az12;
+
+SELECT * 
+FROM silver.erp_loc_a101;
+
+
+
+-- =====================================================================================================
+-- Step 2: Explore relationships between CRM and ERP tables
+-- =====================================================================================================
+
+WITH cte AS (
+    SELECT 
+        CI.cst_id,
+        CI.cst_key,
+        CI.cst_firstname,
+        CI.cst_lastname,
+        CI.cst_marital_status,
+        CI.cst_gndr,
+        CI.cst_create_date,
+        ECI.bdate,
+        ECI.gen,
+        ELO.cntry
+    FROM silver.crm_cust_info AS CI
+    LEFT JOIN silver.erp_cust_az12 AS ECI
+        ON CI.cst_key = ECI.cid
+    LEFT JOIN silver.erp_loc_a101 AS ELO
+        ON ELO.cid = CI.cst_key
+)
+SELECT 
+    cst_key, 
+    COUNT(*) AS record_count
+FROM cte
+GROUP BY cst_key
+HAVING COUNT(cst_key) > 1;
+
+-- Result: No duplicates found in the joined dataset
+
+
+
+-- =====================================================================================================
+-- Step 3: Resolve conflicting columns (gender from CRM vs ERP)
+-- =====================================================================================================
+
+SELECT DISTINCT
+    CI.cst_gndr,
+    ECI.gen,
+    CASE
+        WHEN CI.cst_gndr != 'Unknown' THEN CI.cst_gndr
+        ELSE COALESCE(ECI.gen, 'Unknown')
+    END AS resolved_gender
+FROM silver.crm_cust_info AS CI
+LEFT JOIN silver.erp_cust_az12 AS ECI
+    ON CI.cst_key = ECI.cid
+LEFT JOIN silver.erp_loc_a101 AS ELO
+    ON ELO.cid = CI.cst_key
+ORDER BY CI.cst_gndr, ECI.gen;
+
+-- Conflict observed: mismatched male/female values
+-- Decision: CRM is the master source → prioritize CRM gender values
+
+
+
+-- =====================================================================================================
+-- Step 4: Build unified customer dataset with standardized naming
+-- =====================================================================================================
+
+SELECT 
+    CI.cst_id            AS customer_id,
+    CI.cst_key           AS customer_number,
+    CI.cst_firstname     AS first_name,
+    CI.cst_lastname      AS last_name,
+    CI.cst_marital_status AS marital_status,
+    CASE
+        WHEN CI.cst_gndr != 'Unknown' THEN CI.cst_gndr
+        ELSE COALESCE(ECI.gen, 'Unknown')
+    END AS gender,
+    CI.cst_create_date   AS creation_date,
+    ECI.bdate            AS birth_date,
+    ELO.cntry            AS country
+FROM silver.crm_cust_info AS CI
+LEFT JOIN silver.erp_cust_az12 AS ECI
+    ON CI.cst_key = ECI.cid
+LEFT JOIN silver.erp_loc_a101 AS ELO
+    ON ELO.cid = CI.cst_key;
+
+
+
+-- =====================================================================================================
+-- Step 5: Add surrogate key for dimensional modeling
+-- =====================================================================================================
+
+SELECT 
+    ROW_NUMBER() OVER (ORDER BY CI.cst_id) AS customer_key,
+    CI.cst_id            AS customer_id,
+    CI.cst_key           AS customer_number,
+    CI.cst_firstname     AS first_name,
+    CI.cst_lastname      AS last_name,
+    CI.cst_marital_status AS marital_status,
+    CASE
+        WHEN CI.cst_gndr != 'Unknown' THEN CI.cst_gndr
+        ELSE COALESCE(ECI.gen, 'Unknown')
+    END AS gender,
+    CI.cst_create_date   AS creation_date,
+    ECI.bdate            AS birth_date,
+    ELO.cntry            AS country
+FROM silver.crm_cust_info AS CI
+LEFT JOIN silver.erp_cust_az12 AS ECI
+    ON CI.cst_key = ECI.cid
+LEFT JOIN silver.erp_loc_a101 AS ELO
+    ON ELO.cid = CI.cst_key;
+
+-- Surrogate key (customer_key) ensures stable dimensional joins
+
+
+
+-- =====================================================================================================
+-- Step 6: Create gold layer dimension view for customers
+-- =====================================================================================================
+
+CREATE VIEW gold.dim_customers AS
+SELECT 
+    ROW_NUMBER() OVER (ORDER BY CI.cst_id) AS customer_key,
+    CI.cst_id            AS customer_id,
+    CI.cst_key           AS customer_number,
+    CI.cst_firstname     AS first_name,
+    CI.cst_lastname      AS last_name,
+    CI.cst_marital_status AS marital_status,
+    CASE
+        WHEN CI.cst_gndr != 'Unknown' THEN CI.cst_gndr
+        ELSE COALESCE(ECI.gen, 'Unknown')
+    END AS gender,
+    CI.cst_create_date   AS creation_date,
+    ECI.bdate            AS birth_date,
+    ELO.cntry            AS country
+FROM silver.crm_cust_info AS CI
+LEFT JOIN silver.erp_cust_az12 AS ECI
+    ON CI.cst_key = ECI.cid
+LEFT JOIN silver.erp_loc_a101 AS ELO
+    ON ELO.cid = CI.cst_key;
+
+-- Gold layer view: dim_customers ready for star schema modeling
