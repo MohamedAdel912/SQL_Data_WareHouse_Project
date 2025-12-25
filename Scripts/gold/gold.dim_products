@@ -1,0 +1,143 @@
+-- =====================================================================================================
+-- Step 1: Explore source tables in the silver layer
+-- =====================================================================================================
+
+SELECT * 
+FROM silver.crm_prd_info;
+
+SELECT * 
+FROM silver.erp_px_cat_g1v2;
+
+
+
+-- =====================================================================================================
+-- Step 2: Explore relationships between CRM and ERP product tables
+-- =====================================================================================================
+
+SELECT  
+    pr.prd_id,
+    pr.cat_id,
+    pr.prd_key,
+    pr.prd_nm,
+    pr1.cat,
+    pr1.subcat,
+    pr1.maintenance,
+    pr.prd_cost,
+    pr.prd_line,
+    pr.prd_start_dt,
+    pr.prd_end_dt
+FROM silver.crm_prd_info AS pr
+LEFT JOIN silver.erp_px_cat_g1v2 AS pr1
+    ON pr.cat_id = pr1.id
+WHERE pr.prd_end_dt IS NULL;
+
+-- Note: Keeping NULL end_date values since they represent current active products
+
+
+
+-- =====================================================================================================
+-- Step 3: Check for duplicates in the joined dataset
+-- =====================================================================================================
+
+WITH cte AS (
+    SELECT  
+        pr.prd_id      AS product_id,
+        pr.cat_id      AS category_id,
+        pr.prd_key     AS product_key,
+        pr.prd_nm      AS product_number,
+        pr1.cat        AS category,
+        pr1.subcat     AS sub_category,
+        pr1.maintenance AS maintenance,
+        pr.prd_cost    AS product_cost,
+        pr.prd_line    AS product_line,
+        pr.prd_start_dt AS start_date,
+        pr.prd_end_dt
+    FROM silver.crm_prd_info AS pr
+    LEFT JOIN silver.erp_px_cat_g1v2 AS pr1
+        ON pr.cat_id = pr1.id
+    WHERE pr.prd_end_dt IS NULL
+)
+SELECT 
+    product_id,
+    COUNT(*) AS record_count
+FROM cte
+GROUP BY product_id
+HAVING COUNT(*) > 1;
+
+-- Result: Identifies duplicate product records if any exist
+
+
+
+-- =====================================================================================================
+-- Step 4: Build unified product dataset with standardized naming
+-- =====================================================================================================
+
+SELECT  
+    pr.prd_id       AS product_id,
+    pr.cat_id       AS category_id,
+    pr.prd_key      AS product_key,
+    pr.prd_nm       AS product_number,
+    pr1.cat         AS category,
+    pr1.subcat      AS subcategory,
+    pr1.maintenance AS maintenance,
+    pr.prd_cost     AS product_cost,
+    pr.prd_line     AS product_line,
+    pr.prd_start_dt AS start_date,
+    pr.prd_end_dt
+FROM silver.crm_prd_info AS pr
+LEFT JOIN silver.erp_px_cat_g1v2 AS pr1
+    ON pr.cat_id = pr1.id
+WHERE pr.prd_end_dt IS NULL;
+
+
+
+-- =====================================================================================================
+-- Step 5: Add surrogate key for dimensional modeling
+-- =====================================================================================================
+
+SELECT  
+    ROW_NUMBER() OVER (ORDER BY pr.prd_start_dt) AS product_key,
+    pr.prd_id       AS product_id,
+    pr.cat_id       AS category_id,
+    pr.prd_key      AS product_number,
+    pr.prd_nm       AS product_name,
+    pr1.cat         AS category,
+    pr1.subcat      AS subcategory,
+    pr1.maintenance AS maintenance,
+    pr.prd_cost     AS product_cost,
+    pr.prd_line     AS product_line,
+    pr.prd_start_dt AS start_date,
+    pr.prd_end_dt
+FROM silver.crm_prd_info AS pr
+LEFT JOIN silver.erp_px_cat_g1v2 AS pr1
+    ON pr.cat_id = pr1.id
+WHERE pr.prd_end_dt IS NULL;
+
+-- Surrogate key (product_key) ensures stable dimensional joins
+
+
+
+-- =====================================================================================================
+-- Step 6: Create gold layer dimension view for products
+-- =====================================================================================================
+
+CREATE VIEW gold.dim_product AS
+SELECT  
+    ROW_NUMBER() OVER (ORDER BY pr.prd_start_dt) AS product_key,
+    pr.prd_id       AS product_id,
+    pr.cat_id       AS category_id,
+    pr.prd_key      AS product_number,
+    pr.prd_nm       AS product_name,
+    pr1.cat         AS category,
+    pr1.subcat      AS subcategory,
+    pr1.maintenance AS maintenance,
+    pr.prd_cost     AS product_cost,
+    pr.prd_line     AS product_line,
+    pr.prd_start_dt AS start_date,
+    pr.prd_end_dt
+FROM silver.crm_prd_info AS pr
+LEFT JOIN silver.erp_px_cat_g1v2 AS pr1
+    ON pr.cat_id = pr1.id
+WHERE pr.prd_end_dt IS NULL;
+
+-- Gold layer view: dim_product ready for star schema modeling
