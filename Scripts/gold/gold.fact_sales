@@ -1,0 +1,67 @@
+-- =====================================================================================================
+-- Step 1: Explore source fact table in the silver layer
+-- =====================================================================================================
+
+SELECT * 
+FROM silver.crm_sales_details;
+
+
+
+-- =====================================================================================================
+-- Step 2: Explore dimension tables in the gold layer
+-- =====================================================================================================
+
+SELECT * 
+FROM gold.dim_customers;
+
+SELECT * 
+FROM gold.dim_product;
+
+
+
+-- =====================================================================================================
+-- Step 3: Join fact table with dimension tables for exploration
+-- =====================================================================================================
+
+SELECT 
+    sal.sls_ord_num,
+    dimp.product_key,    
+    dimc.customer_id,
+    sal.sls_order_dt,
+    sal.sls_ship_dt,
+    sal.sls_due_dt,
+    sal.sls_sales,
+    sal.sls_quantity,
+    sal.sls_price
+FROM silver.crm_sales_details AS sal
+LEFT JOIN gold.dim_customers AS dimc
+    ON dimc.customer_id = sal.sls_cust_id 
+LEFT JOIN gold.dim_product AS dimp
+    ON dimp.product_number = sal.sls_prd_key;
+
+-- This query replaces foreign keys in the fact table with surrogate keys from the dimensions
+
+
+
+-- =====================================================================================================
+-- Step 4: Create gold layer fact view for sales
+-- =====================================================================================================
+
+CREATE VIEW gold.fact_sales AS
+SELECT 
+    sal.sls_ord_num,
+    dimp.product_key,    
+    dimc.customer_id,
+    sal.sls_order_dt,
+    sal.sls_ship_dt,
+    sal.sls_due_dt,
+    sal.sls_sales,
+    sal.sls_quantity,
+    sal.sls_price
+FROM silver.crm_sales_details AS sal
+LEFT JOIN gold.dim_customers AS dimc
+    ON dimc.customer_id = sal.sls_cust_id 
+LEFT JOIN gold.dim_product AS dimp
+    ON dimp.product_number = sal.sls_prd_key;
+
+-- Gold layer view: fact_sales ready for star schema modeling
